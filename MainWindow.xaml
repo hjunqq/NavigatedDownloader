@@ -1,0 +1,65 @@
+﻿<Window x:Class="NavigatedDownloader.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ControlLib="clr-namespace:ControlLib;assembly=NumericUpDown"
+        Title="NavigatedDownloader" WindowStartupLocation="CenterScreen" Closed="Window_Closed" Icon="Logo.ico"
+        >
+    <Grid Margin="10,10,10,10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="auto" />
+            <RowDefinition Height="auto"/>
+        </Grid.RowDefinitions>
+        <DockPanel Grid.Row="0" LastChildFill="True">
+            <Button DockPanel.Dock="Right" Content="开始" Width="75" Name="goButton" Click="goButton_Click" IsDefault="True"/>
+            <TextBox Name="urlTextBox" Margin="0,0,0,0" Text="" />
+        </DockPanel>
+
+        <WebBrowser Name="browser" Margin="0,10,0,10" Grid.Row="1" LoadCompleted="browser_LoadCompleted"  Navigating="browser_Navigating" />
+
+        <StackPanel Grid.Row="2" HorizontalAlignment="Center" Orientation="Horizontal">
+            <Image Name="codeImage" Height="76" Width="214" HorizontalAlignment="Left"/>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1*"/>
+                    <RowDefinition Height="1*"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="codeTextBox" Grid.Row="0" Grid.Column="0" IsEnabled="False" Height="22" Width="60" Margin="5" Text="" HorizontalAlignment="Left" />
+                <Button Name="codeButton" Grid.Row="0" Grid.Column="1" IsEnabled="False" Content="继续下载" Margin="5" Height="22" Width="75" Click="codeButton_Click" HorizontalAlignment="Left" />
+                <TextBlock Text="线程数" Grid.Row="0" Grid.Column="2" Height="18" Width="40" Margin="5,0,0,0" HorizontalAlignment="Right"/>
+                <ControlLib:NumericUpDown Grid.Row="0" Grid.Column="3" x:Name="numericUpDown" IsEnabled="False" Height="22" HorizontalAlignment="Left" MinValue="1" MaxValue="10" VerticalAlignment="Center" Increment="1" Width="30" BorderBrush="Gray"/>
+                <Button Name="downloadButton" Grid.Row="0" Grid.Column="4" Content="下载" Margin="5" Height="22" Width="75" Click="downloadButton_Click" IsEnabled="False" />
+                <Button Name="pdfButton" Grid.Row="0" Grid.Column="5" Content="生成PDF" Margin="5" Height="22" Width="75" Click="pdfButton_Click" />
+                <Button Name="cancelButton" Grid.Row="1" Grid.Column="1" IsEnabled="False" Height="22" Width="75" Margin="5" Content="取消" Click="cancelButton_Click"/>
+                <TextBox Name="pathBox" Text="Download" Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="3" MinWidth="200" Margin="5" VerticalAlignment="Center"/>
+                <Button Name="browserButton" Grid.Row="1" Grid.Column="5" Margin="5" Height="22" Content="浏览..." Click="browserButton_Click"/>
+            </Grid>
+        </StackPanel>
+        <StackPanel x:Name="stackPanel" Grid.Row="3" Height="20" Orientation="Horizontal">
+            <Grid Width="{Binding ActualWidth, ElementName=stackPanel, Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="600*"/>
+                    <ColumnDefinition Width="300*"/>
+                    <ColumnDefinition Width="200*"/>
+                </Grid.ColumnDefinitions>
+                <ProgressBar Name="progressBar" Grid.Column="0" Height="20" Minimum="0" Maximum="1" Value="0"/>
+                <StackPanel  Grid.Column="1" Orientation="Horizontal">
+                    <TextBlock Name="progressi"  Text="0" Margin="10,0,0,0"/>
+                    <TextBlock Text="/" />
+                    <TextBlock Name="progressn" Text="0"/>
+                    <TextBlock Name="elapsedTimeBox" Text="00:00:00" Margin="40,0"/>
+                </StackPanel>
+                <TextBlock Name="bookname" Grid.Column="2" Text="书籍名称" HorizontalAlignment="Right"/>
+            </Grid>
+        </StackPanel>
+    </Grid>
+</Window>
