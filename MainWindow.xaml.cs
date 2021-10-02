@@ -18,6 +18,8 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Forms;
 using System.Timers;
+using System.Xml.Linq;
+using System.Threading.Tasks;
 
 namespace NavigatedDownloader
 {
@@ -79,7 +81,17 @@ namespace NavigatedDownloader
         public string domain { get; set; }
         public string imgBaseURL { get; set; }
         public string cookie { get; set; }
+        public string menuValue { get; set; }
+
+        
     }
+    public class MenuParameter
+    {
+        public int[] pages { get; set; }
+        public string[] captions { get; set; }
+        public int nbookmarks { get; set; }
+    }
+
     public partial class MainWindow : Window
     {
         public MainWindow()
@@ -96,6 +108,8 @@ namespace NavigatedDownloader
         private string[] regexStrings;
         //private AutoResetEvent waitEvent = new AutoResetEvent(true);
         private AutoResetEvent[] waitEvent;
+        Thread[] threads;
+
         private string code;
         private bool isUiEnabled;
         private int nThreads = 2;
@@ -103,6 +117,7 @@ namespace NavigatedDownloader
         private int elapsedTimes;
         private string title;
         string storePath = string.Empty;
+        private MenuParameter menu;
         private void OnWebBrowserNewWindow(string URL, int Flags, string TargetFrameName, ref object PostData, string Headers, ref bool Processed)
         {
             Processed = true;
@@ -281,12 +296,25 @@ namespace NavigatedDownloader
 
             string imgBaseURL = Regex.Match(html, regexStrings[2]).Value;
 
+            string menuValue = Regex.Match(html, regexStrings[4]).Value.Replace("&amp;","&");
+
+
+            //download menu
+            DownloadParameter downloadMenu = new DownloadParameter();
+
+            downloadMenu.cookie = cookie;
+            downloadMenu.menuValue = menuValue;
+
+            Task<MenuParameter> doGetMenu = Task.Factory.StartNew<MenuParameter>(() => GetMenu(downloadMenu));
+            menu = doGetMenu.Result;
+
+
             int i = 0, n = fileNameList.Count;
             int[] progress = new int[] { i, n };
             //nThreads = 5;
             ManualResetEvent[] downloadStartEvents = new ManualResetEvent[nThreads];
             ManualResetEvent[] downloadDoneEvents = new ManualResetEvent[nThreads];
-            Thread[] threads = new Thread[nThreads];
+            threads = new Thread[nThreads];
             DownloadParameter[] downloadParams = new DownloadParameter[nThreads];
             waitEvent = new AutoResetEvent[nThreads];
 
@@ -307,7 +335,7 @@ namespace NavigatedDownloader
                 downloadParams[ithread].imgBaseURL = imgBaseURL;
                 downloadParams[ithread].cookie = cookie;
                 downloadParams[ithread].tDoneEvent = downloadDoneEvents[ithread];
-
+                downloadParams[ithread].menuValue = menuValue;
                 threads[ithread] = new Thread(MultiDownload);
                 threads[ithread].Start(downloadParams[ithread]);
             }
@@ -327,7 +355,49 @@ namespace NavigatedDownloader
 
             this.Dispatcher.BeginInvoke(new Action<string>(ShowDone), "下载完成！");
         }
+        private MenuParameter GetMenu(object dParams)
+        {
+            DownloadParameter downParams = (DownloadParameter)dParams;
+            string menuBaseUrl = "http://path.sslibrary.com/cat/cat2xml.dll?";
+            string meunValue = downParams.menuValue;
+            string menuUrl = menuBaseUrl + meunValue;
 
+            HttpWebRequest request = WebRequest.Create(menuUrl) as HttpWebRequest;
+            request.Headers.Add("Cookie", downParams.cookie);
+            request.Method = "GET";
+            request.UserAgent = "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko";
+            HttpWebResponse response = request.GetResponse() as HttpWebResponse;
+
+
+            MemoryStream ms = new MemoryStream();
+            response.GetResponseStream().CopyTo(ms);
+
+            MenuParameter mpara = new MenuParameter();
+
+            if(response.ContentType.Contains("text/html") == true)
+            {
+                ms.Seek(0, SeekOrigin.Begin);
+                //string xml = new StreamReader(ms).ReadToEnd();
+                XElement xe = XElement.Load(ms);
+                IEnumerable<XElement> elements = from ele in xe.Elements("tree")
+                                                 select ele;
+                string[] captions = new string[elements.Count()];
+                int[] pages = new int[elements.Count()];
+                int i=0;
+                foreach(XElement ele in elements)
+                {
+                    captions[i] = ele.FirstAttribute.NextAttribute.Value;
+                    pages[i] = int.Parse(ele.FirstAttribute.NextAttribute.NextAttribute.Value);
+                    i += 1;
+                }
+
+                mpara.pages = pages;
+                mpara.captions = captions;
+                mpara.nbookmarks = elements.Count();
+            }
+
+            return mpara;
+        }
         private void MultiDownload(object dParams)
         {
             DownloadParameter downParams = (DownloadParameter)dParams;
@@ -344,10 +414,12 @@ namespace NavigatedDownloader
                 {
                     waitEvent[downParams.tid].WaitOne();
                 }
-                string imgURL = downParams.domain + downParams.imgBaseURL + fileName[0] + "?.&uf=ssr&zoom=2";
-                MemoryStream ms = GetResponse(imgURL, downParams.cookie, downParams.tid);
-                File.WriteAllBytes(string.Format(downParams.storagepath + @"\{0}.jpg", fileName[1]), ms.ToArray());
-
+                if (!File.Exists(string.Format(downParams.storagepath + @"\{0}.jpg", fileName[1])))
+                {
+                    string imgURL = downParams.domain + downParams.imgBaseURL + fileName[0] + "?.&uf=ssr&zoom=2";
+                    MemoryStream ms = GetResponse(imgURL, downParams.cookie, downParams.tid);
+                    File.WriteAllBytes(string.Format(downParams.storagepath + @"\{0}.jpg", fileName[1]), ms.ToArray());
+                }
                 this.Dispatcher.BeginInvoke(new Action<int>(AddProgress), i++);
             }
 
@@ -401,6 +473,7 @@ namespace NavigatedDownloader
             this.codeTextBox.Text = string.Empty;
             this.codeButton.IsEnabled = true;
             this.codeButton.IsDefault = true;
+            this.cancelButton.IsEnabled = false;
         }
 
         private void DisableUI()
@@ -410,6 +483,7 @@ namespace NavigatedDownloader
             this.codeTextBox.Text = string.Empty;
             this.codeTextBox.IsEnabled = false;
             this.codeButton.IsEnabled = false;
+            this.cancelButton.IsEnabled = true;
         }
 
 
@@ -567,6 +641,21 @@ namespace NavigatedDownloader
                         labels.AddPageLabel(1, PdfPageLabels.LOWERCASE_ROMAN_NUMERALS);
                         labels.AddPageLabel(mainPageStartNumber, PdfPageLabels.DECIMAL_ARABIC_NUMERALS);
                         pdfWriter.PageLabels = labels;
+
+                        string caption;
+                        int ipage;
+                        PdfContentByte cb = pdfWriter.DirectContent;
+                        PdfOutline root = cb.RootOutline;
+
+                        for(int ibkm=0; ibkm < menu.nbookmarks; ibkm++)
+                        {
+                            caption = menu.captions[ibkm];
+                            ipage = menu.pages[ibkm];
+                            PdfAction action = PdfAction.GotoLocalPage(ipage, new PdfDestination(PdfDestination.FIT), pdfWriter);
+                            PdfOutline outline = new PdfOutline(root, action, caption);
+                        }
+
+
                         pdfDoc.Close();
                         this.Dispatcher.BeginInvoke(new Action<string>(ShowDone), "已生成PDF");
 
@@ -599,7 +688,10 @@ namespace NavigatedDownloader
 
         private void cancelButton_Click(object sender, RoutedEventArgs e)
         {
-
+            for (int i = 0; i < nThreads; i++)
+            {
+                threads[i].Abort();
+            }
         }
     }
 }

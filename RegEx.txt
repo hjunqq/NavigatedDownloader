@@ -2,3 +2,5 @@
 var pages.*;
 (?<=jpgPath: \").*?(?=\"[;,])
 (?<=pages: ).*(?=,)
+(?<=cat2xml\.dll\?).*(?=" jQuery)
+(?<=flashvars=").*(?=\")
