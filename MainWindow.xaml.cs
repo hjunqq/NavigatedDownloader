@@ -379,25 +379,53 @@ namespace NavigatedDownloader
                 ms.Seek(0, SeekOrigin.Begin);
                 //string xml = new StreamReader(ms).ReadToEnd();
                 XElement xe = XElement.Load(ms);
-                IEnumerable<XElement> elements = from ele in xe.Elements("tree")
-                                                 select ele;
-                string[] captions = new string[elements.Count()];
-                int[] pages = new int[elements.Count()];
-                int i=0;
-                foreach(XElement ele in elements)
-                {
-                    captions[i] = ele.FirstAttribute.NextAttribute.Value;
-                    pages[i] = int.Parse(ele.FirstAttribute.NextAttribute.NextAttribute.Value);
-                    i += 1;
-                }
+                //IEnumerable<XElement> elements = from ele in xe.Elements("tree")
+                //                                 select ele;
+                //IEnumerable<XElement> elements = from ele in xe.Elements()
+                //                                 select ele;
 
-                mpara.pages = pages;
-                mpara.captions = captions;
-                mpara.nbookmarks = elements.Count();
+                GetSubNodes(xe, out List<string> recCap, out List<int> recPage);
+
+
+                //string[] captions = new string[elements.Count()];
+                //int[] pages = new int[elements.Count()];
+                //int i=0;
+                //foreach(XElement ele in elements)
+                //{
+                //    captions[i] = ele.FirstAttribute.NextAttribute.Value;
+                //    pages[i] = int.Parse(ele.FirstAttribute.NextAttribute.NextAttribute.Value);
+                //    i += 1;
+                //}
+
+                //mpara.pages = pages;
+                //mpara.captions = captions;
+                //mpara.nbookmarks = elements.Count();
+                mpara.pages = recPage.ToArray();
+                mpara.captions = recCap.ToArray();
+                mpara.nbookmarks = recPage.Count();
             }
 
             return mpara;
         }
+
+        private void GetSubNodes(XElement xe,out List<string>caption,out List<int> pages)
+        {
+            caption = new List<string>();
+            pages = new List<int>();
+            IEnumerable<XElement> elements = from ele in xe.Elements() select ele;
+            foreach (XElement ele in elements)
+            {
+                caption.Add(ele.FirstAttribute.NextAttribute.Value);
+                pages.Add(int.Parse(ele.FirstAttribute.NextAttribute.NextAttribute.Value));
+                if (ele.Elements().Count() > 1)
+                {
+                    GetSubNodes(ele,out List<string> subCap,out List<int> subPage);
+                    caption.AddRange(subCap);
+                    pages.AddRange(subPage);
+                }
+            }
+        }
+
         private void MultiDownload(object dParams)
         {
             DownloadParameter downParams = (DownloadParameter)dParams;
@@ -650,7 +678,7 @@ namespace NavigatedDownloader
                         for(int ibkm=0; ibkm < menu.nbookmarks; ibkm++)
                         {
                             caption = menu.captions[ibkm];
-                            ipage = menu.pages[ibkm];
+                            ipage = menu.pages[ibkm] + mainPageStartNumber -1;
                             PdfAction action = PdfAction.GotoLocalPage(ipage, new PdfDestination(PdfDestination.FIT), pdfWriter);
                             PdfOutline outline = new PdfOutline(root, action, caption);
                         }
